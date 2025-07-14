@@ -34,6 +34,8 @@ from bpy.props import (StringProperty,
                        IntProperty,
                        PointerProperty)
 
+from __future__ import annotations # 전방위 선언이 필요없이 타입 힌트를 문자열로 자동 처리해 주는 기능
+
 bl_info = {
     'name': 'Sketchfab Plugin',
     'description': 'Browse and download free Sketchfab downloadable models',
@@ -50,52 +52,52 @@ bl_info = {
     'support': 'COMMUNITY',
     'category': 'Import-Export'
 }
-bl_info['blender'] = getattr(bpy.app, "version")
+bl_info['blender'] = getattr( bpy.app, "version" )
 
 
-PLUGIN_VERSION = str(bl_info['version']).strip('() ').replace(',', '.')
-preview_collection = {}
-thumbnailsProgress = set([])
-ongoingSearches = set([])
-is_plugin_enabled = False
+PLUGIN_VERSION      = str(bl_info['version']).strip('() ').replace(',', '.')
+preview_collection  = {}
+thumbnailsProgress  = set([])
+ongoingSearches     = set([])
+is_plugin_enabled   = False
 
 
 class Config:
 
-    ADDON_NAME = 'io_sketchfab'
-    GITHUB_REPOSITORY_URL = 'https://github.com/sketchfab/blender-plugin'
-    GITHUB_REPOSITORY_API_URL = 'https://api.github.com/repos/sketchfab/blender-plugin'
-    SKETCHFAB_REPORT_URL = 'https://help.sketchfab.com/hc/en-us/requests/new?type=exporters&subject=Blender+Plugin'
+    ADDON_NAME                  = 'io_sketchfab'
+    GITHUB_REPOSITORY_URL       = 'https://github.com/sketchfab/blender-plugin'
+    GITHUB_REPOSITORY_API_URL   = 'https://api.github.com/repos/sketchfab/blender-plugin'
+    SKETCHFAB_REPORT_URL        = 'https://help.sketchfab.com/hc/en-us/requests/new?type=exporters&subject=Blender+Plugin'
 
-    SKETCHFAB_URL = 'https://sketchfab.com'
-    CLIENTID = 'hGC7unF4BHyEB0s7Orz5E1mBd3LluEG0ILBiZvF9'
-    SKETCHFAB_OAUTH = SKETCHFAB_URL + '/oauth2/token/'
-    SKETCHFAB_API = 'https://api.sketchfab.com'
-    SKETCHFAB_SEARCH = SKETCHFAB_API + '/v3/search'
-    SKETCHFAB_MODEL = SKETCHFAB_API + '/v3/models'
-    SKETCHFAB_ORGS = SKETCHFAB_API + '/v3/orgs'
-    SKETCHFAB_SIGNUP = 'https://sketchfab.com/signup'
+    SKETCHFAB_URL               = 'https://sketchfab.com'
+    CLIENTID                    = 'hGC7unF4BHyEB0s7Orz5E1mBd3LluEG0ILBiZvF9'
+    SKETCHFAB_OAUTH             = SKETCHFAB_URL + '/oauth2/token/'
+    SKETCHFAB_API               = 'https://api.sketchfab.com'
+    SKETCHFAB_SEARCH            = SKETCHFAB_API + '/v3/search'
+    SKETCHFAB_MODEL             = SKETCHFAB_API + '/v3/models'
+    SKETCHFAB_ORGS              = SKETCHFAB_API + '/v3/orgs'
+    SKETCHFAB_SIGNUP            = 'https://sketchfab.com/signup'
 
     # BASE_SEARCH = SKETCHFAB_SEARCH + '?type=models&downloadable=true'
-    BASE_SEARCH = SKETCHFAB_SEARCH + '?type=models'
-    DEFAULT_FLAGS = '&staffpicked=true&sort_by=-staffpickedAt'
-    DEFAULT_SEARCH = SKETCHFAB_SEARCH + \
-                     '?type=models' + \
-                     '&restricted=1' + \
-                     '&downloadable=true' + \
-                     DEFAULT_FLAGS
+    BASE_SEARCH                 = SKETCHFAB_SEARCH + '?type=models'
+    DEFAULT_FLAGS               = '&staffpicked=true&sort_by=-staffpickedAt'
+    DEFAULT_SEARCH              = SKETCHFAB_SEARCH + \
+                                    '?type=models' + \
+                                    '&restricted=1' + \
+                                    '&downloadable=true' + \
+                                    DEFAULT_FLAGS
 
-    SKETCHFAB_ME = '{}/v3/me'.format(SKETCHFAB_API)
+    SKETCHFAB_ME                = '{}/v3/me'.format( SKETCHFAB_API )
     # BASE_SEARCH_OWN_MODELS = SKETCHFAB_ME + '/search?type=models&downloadable=true'
-    BASE_SEARCH_OWN_MODELS = SKETCHFAB_ME + '/search?type=models'
-    PURCHASED_MODELS = SKETCHFAB_ME + "/models/purchases?"
+    BASE_SEARCH_OWN_MODELS      = SKETCHFAB_ME + '/search?type=models'
+    PURCHASED_MODELS            = SKETCHFAB_ME + "/models/purchases?"
 
-    SKETCHFAB_PLUGIN_VERSION = '{}/releases'.format(GITHUB_REPOSITORY_API_URL)
+    SKETCHFAB_PLUGIN_VERSION    = '{}/releases'.format(GITHUB_REPOSITORY_API_URL)
 
     # Those will be set during plugin initialization, or upon setting a new cache directory
-    SKETCHFAB_TEMP_DIR = ""
-    SKETCHFAB_THUMB_DIR = ""
-    SKETCHFAB_MODEL_DIR = ""
+    SKETCHFAB_TEMP_DIR          = ""
+    SKETCHFAB_THUMB_DIR         = ""
+    SKETCHFAB_MODEL_DIR         = ""
 
     SKETCHFAB_CATEGORIES = (('ALL', 'All categories', 'All categories'),
                             ('animals-pets', 'Animals & Pets', 'Animals and Pets'),
@@ -187,12 +189,12 @@ class Utils:
         return os.path.exists(os.path.join(Config.SKETCHFAB_THUMB_DIR, '{}.jpeg'.format(uid)))
 
     def clean_thumbnail_directory():
-        if not os.path.exists(Config.SKETCHFAB_THUMB_DIR):
+        if not os.path.exists( Config.SKETCHFAB_THUMB_DIR ):
             return
 
         from os import listdir
-        for file in listdir(Config.SKETCHFAB_THUMB_DIR):
-            os.remove(os.path.join(Config.SKETCHFAB_THUMB_DIR, file))
+        for file in listdir( Config.SKETCHFAB_THUMB_DIR ):
+            os.remove( os.path.join( Config.SKETCHFAB_THUMB_DIR, file ) )
 
     def clean_downloaded_model_dir(uid):
         shutil.rmtree(os.path.join(Config.SKETCHFAB_MODEL_DIR, uid))
@@ -323,18 +325,19 @@ class Cache:
 
 
 # helpers
-def get_sketchfab_login_props():
+def get_sketchfab_login_props() -> SketchfabLoginProps:
     return bpy.context.window_manager.sketchfab_api
 
 
-def get_sketchfab_props():
+
+def get_sketchfab_props() -> SketchfabBrowserProps:
     return bpy.context.window_manager.sketchfab_browser
 
 
-def get_sketchfab_props_proxy():
+def get_sketchfab_props_proxy() -> SketchfabBrowserPropsProxy:
     return bpy.context.window_manager.sketchfab_browser_proxy
 
-def get_sketchfab_model(uid):
+def get_sketchfab_model( uid ):
     skfb = get_sketchfab_props()
     if "current" in skfb.search_results and uid in skfb.search_results["current"]:
         return skfb.search_results['current'][uid]
@@ -342,7 +345,7 @@ def get_sketchfab_model(uid):
         return None
 
 def run_default_search():
-    searchthr = GetRequestThread(Config.DEFAULT_SEARCH, parse_results)
+    searchthr = GetRequestThread( Config.DEFAULT_SEARCH, parse_results )
     searchthr.start()
 
 
@@ -581,7 +584,7 @@ class SketchfabApi:
         model.animated = 'Yes ({} animation(s))'.format(anim_count) if anim_count > 0 else 'No'
         skfb.search_results['current'][uid] = model
 
-    def search(self, query, search_cb):
+    def search( self, query, search_cb ):
         skfb = get_sketchfab_props()
         url = Config.BASE_SEARCH
         if skfb.search_domain == "OWN":
@@ -593,11 +596,11 @@ class SketchfabApi:
         elif len(skfb.search_domain) == 32:
             url = Config.SKETCHFAB_ORGS + "/%s/models?isArchivesReady=true&projects=%s" % (self.active_org["uid"], skfb.search_domain)
 
-        search_query = '{}{}'.format(url, query)
-        print(f"Search query a:\n{search_query}")
+        search_query = '{}{}'.format( url, query )
+        print( f"Search query a:\n{search_query}" )
         if search_query not in ongoingSearches:
-            ongoingSearches.add(search_query)
-            searchthr = GetRequestThread(search_query, search_cb, self.headers)
+            ongoingSearches.add( search_query )
+            searchthr = GetRequestThread( search_query, search_cb, self.headers )
             searchthr.start()
 
     def search_cursor(self, url, search_cb):
@@ -877,7 +880,7 @@ def get_sorting_options(self, context):
     else:
         return Config.SKETCHFAB_SORT_BY
 
-class SketchfabBrowserPropsProxy(bpy.types.PropertyGroup):
+class SketchfabBrowserPropsProxy( bpy.types.PropertyGroup ):
     # Search
     query : StringProperty(
             name="",
@@ -973,109 +976,128 @@ class SketchfabBrowserPropsProxy(bpy.types.PropertyGroup):
     )
     expanded_filters : bpy.props.BoolProperty(default=False)
 
-class SketchfabBrowserProps(bpy.types.PropertyGroup):
+class SketchfabBrowserProps( bpy.types.PropertyGroup ):
     # Search
-    query : StringProperty(
+    query : StringProperty( # type: ignore
             name="Search",
             description="Query to search",
             default=""
             )
 
-    pbr : BoolProperty(
+    pbr : BoolProperty( # type: ignore
             name="PBR",
             description="Search for PBR model only",
             default=False
             )
 
-    categories : EnumProperty(
+    categories : EnumProperty( # type: ignore
             name="Categories",
             items=Config.SKETCHFAB_CATEGORIES,
             description="Show only models of category",
             default='ALL',
              )
 
-    face_count : EnumProperty(
+    face_count : EnumProperty( # type: ignore
             name="Face Count",
             items=Config.SKETCHFAB_FACECOUNT,
             description="Determines which meshes are exported",
             default='ANY',
             )
 
-    sort_by : EnumProperty(
+    sort_by : EnumProperty( # type: ignore
             name="Sort by",
             items=get_sorting_options,
             description="Sort ",
             )
 
-    animated : BoolProperty(
+    animated : BoolProperty( # type: ignore
             name="Animated",
             description="Show only models with animation",
             default=False,
             )
 
-    staffpick : BoolProperty(
+    staffpick : BoolProperty( # type: ignore
             name="Staffpick",
             description="Show only staffpick models",
             default=False,
             )
 
-    downloadable : BoolProperty(
+    downloadable : BoolProperty( # type: ignore
             name="Downloadable",
             description="Show only downloadable models",
             default=False,
             )
 
-    restricted : BoolProperty(
+    restricted : BoolProperty( # type: ignore
             name="Restricted",
             description="Show restricted models",
             default=False,
             )
 
-    search_domain : EnumProperty(
+    search_domain : EnumProperty( # type: ignore
             name="Search domain",
             items=get_available_search_domains,
             description="Search domain ",
             )
 
-    use_org_profile : BoolProperty(
+    use_org_profile : BoolProperty( # type: ignore
         name="Use organisation profile",
         description="Import/Export as a member of an organization\nLOL",
         default=False,
     )
 
-    active_org : EnumProperty(
+    active_org : EnumProperty( # type: ignore
         name="Org",
         items=get_user_orgs,
         description="Active org",
     )
 
-    status : StringProperty(name='status', default='idle')
+    status : StringProperty( # type: ignore
+        name='status', 
+        default='idle'
+        )
 
-    use_preview : BoolProperty(
+    use_preview : BoolProperty( # type: ignore
         name="Use Preview",
         description="Show results using preview widget instead of regular buttons with thumbnails as icons",
         default=True
         )
 
     search_results = {}
-    current_key : StringProperty(name='current', default='current')
-    has_searched_next : BoolProperty(name='next', default=False)
-    has_searched_prev : BoolProperty(name='prev', default=False)
+    current_key : StringProperty( # type: ignore
+        name='current',
+        default='current'
+        )
+    has_searched_next : BoolProperty( # type: ignore
+        name='next',
+        default=False
+        )
+    has_searched_prev : BoolProperty( # type: ignore
+        name='prev',
+        default=False
+        )
 
     skfb_api = SketchfabLoginProps.skfb_api
     custom_icons = bpy.utils.previews.new()
-    has_loaded_thumbnails : BoolProperty(default=False)
+    has_loaded_thumbnails : BoolProperty( # type: ignore
+        default=False
+        )
 
-    is_latest_version : IntProperty(default=-1)
+    is_latest_version : IntProperty( # type: ignore
+        default=-1
+        )
 
-    import_status : StringProperty(name='import', default='')
+    import_status : StringProperty( # type: ignore
+        name='import', 
+        default=''
+        )
 
-    manualImportBoolean : BoolProperty(
+    manualImportBoolean : BoolProperty( # type: ignore
             name="Import from url",
             description="Import a downloadable model from a url",
             default=False,
             )
-    manualImportPath : StringProperty(
+    manualImportPath : StringProperty( # type: ignore
             name="Url",
             description="Paste full model url:\n* https://sketchfab.com/models/mymodel-XXXX\n* https://sketchfab.com/orgs/XXXX/3d-models/mymodel-YYYY",
             default="",
@@ -1252,9 +1274,9 @@ def build_search_request(query, pbr, animated, staffpick, downloadable, restrict
     return final_query
 
 
-def parse_results(r, *args, **kwargs):
+def parse_results( r: requests.Response, *args, **kwargs ):
 
-    ongoingSearches.discard(r.url)
+    ongoingSearches.discard( r.url )
 
     skfb = get_sketchfab_props()
     json_data = r.json()
@@ -1265,7 +1287,7 @@ def parse_results(r, *args, **kwargs):
 
     skfb.search_results['current'] = OrderedDict()
 
-    for result in list(json_data.get('results', [])):
+    for result in list( json_data.get( 'results', [] ) ):
 
         # Dirty fix to avoid parsing obsolete data
         if 'current' not in skfb.search_results:
@@ -1459,33 +1481,33 @@ class ImportModalOperator(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
 
-class GetRequestThread(threading.Thread):
-    def __init__(self, url, callback, headers={}):
-        self.url = url
-        self.callback = callback
-        self.headers = headers
-        threading.Thread.__init__(self)
+class GetRequestThread( threading.Thread ):
+    def __init__( self, url, callback, headers={} ):
+        self.url        = url
+        self.callback   = callback
+        self.headers    = headers
+        threading.Thread.__init__( self )
 
-    def run(self):
-        requests.get(self.url, headers=self.headers, hooks={'response': self.callback})
+    def run( self ):
+        requests.get( self.url, headers=self.headers, hooks={'response': self.callback} )
 
 
 class View3DPanel:
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS' if bpy.app.version < (2, 80, 0) else 'UI'
-    bl_category = 'Sketchfab'
-    bl_context = 'objectmode'
+    bl_space_type   = 'VIEW_3D'
+    bl_region_type  = 'TOOLS' if bpy.app.version < (2, 80, 0) else 'UI'
+    bl_category     = 'Sketchfab'
+    bl_context      = 'objectmode'
 
-class SketchfabPanel(View3DPanel, bpy.types.Panel):
-    bl_options = {'DEFAULT_CLOSED'}
-    bl_idname = "VIEW3D_PT_sketchfab_about"
-    bl_label = "About"
+class SketchfabPanel( View3DPanel, bpy.types.Panel ):
+    bl_options      = {'DEFAULT_CLOSED'}
+    bl_idname       = "VIEW3D_PT_sketchfab_about"
+    bl_label        = "About"
 
     @classmethod
-    def poll(cls, context):
-        return (context.scene is not None)
+    def poll( cls, context ):
+        return ( context.scene is not None )
 
-    def draw(self, context):
+    def draw( self, context ):
 
         skfb = get_sketchfab_props()
 
@@ -1499,22 +1521,22 @@ class SketchfabPanel(View3DPanel, bpy.types.Panel):
 
         # External links
         #doc_ui = self.layout.row()
-        self.layout.operator('wm.skfb_help', text='Documentation', icon='QUESTION')
-        self.layout.operator('wm.skfb_report_issue', text='Report an issue', icon='ERROR')
-        self.layout.label(text="Download folder:")
-        self.layout.label(text="  " + Config.SKETCHFAB_TEMP_DIR)
+        self.layout.operator( 'wm.skfb_help', text='Documentation', icon='QUESTION')
+        self.layout.operator( 'wm.skfb_report_issue', text='Report an issue', icon='ERROR')
+        self.layout.label( text="Download folder:")
+        self.layout.label( text="  " + Config.SKETCHFAB_TEMP_DIR)
 
-class LoginPanel(View3DPanel, bpy.types.Panel):
-    bl_idname = "VIEW3D_PT_sketchfab_login"
-    bl_label = "Activation / Log in"
+class LoginPanel( View3DPanel, bpy.types.Panel ):
+    bl_idname       = "VIEW3D_PT_sketchfab_login"
+    bl_label        = "Activation / Log in"
     #bl_parent_id = "VIEW3D_PT_sketchfab"
 
-    is_logged = BoolProperty()
+    is_logged       = BoolProperty()
 
-    def draw(self, context):
+    def draw( self, context ):
         global is_plugin_enabled
         if not is_plugin_enabled:
-            self.layout.operator('wm.skfb_enable', text='Activate add-on', icon="LINKED").enable = True
+            self.layout.operator( 'wm.skfb_enable', text='Activate add-on', icon="LINKED").enable = True
         else:
             # LOGIN
             skfb_login = get_sketchfab_login_props()
@@ -1541,7 +1563,7 @@ class LoginPanel(View3DPanel, bpy.types.Panel):
                 if skfb_login.status:
                     layout.prop(skfb_login, 'status', icon=skfb_login.status_type)
 
-class TeamsPanel(View3DPanel, bpy.types.Panel):
+class TeamsPanel( View3DPanel, bpy.types.Panel ):
     bl_idname = "VIEW3D_PT_sketchfab_teams"
     bl_label = "Sketchfab for Teams"
     bl_options = {'DEFAULT_CLOSED'}
@@ -1573,7 +1595,7 @@ class Model:
         self.uid = _uid
         self.download_size = 0
 
-class SketchfabBrowse(View3DPanel, bpy.types.Panel):
+class SketchfabBrowse( View3DPanel, bpy.types.Panel ):
     bl_idname = "VIEW3D_PT_sketchfab_browse"
     bl_label = "Import"
 
@@ -1765,19 +1787,20 @@ class SketchfabExportPanel(View3DPanel, bpy.types.Panel):
         if model_url:
             layout.operator("wm.url_open", text="View Online Model", icon='URL').url = model_url
 
-class SketchfabLogger(bpy.types.Operator):
+class SketchfabLogger( bpy.types.Operator ):
     """Log in / out your Sketchab.com account"""
-    bl_idname = 'wm.sketchfab_login'
-    bl_label = 'Sketchfab Login'
-    bl_options = {'INTERNAL'}
+    bl_idname       = 'wm.sketchfab_login'
+    bl_label        = 'Sketchfab Login'
+    bl_options      = {'INTERNAL'}
 
-    authenticate : BoolProperty(default=True)
+    authenticate : BoolProperty( # type: ignore 
+                                default=True ) 
 
-    def execute(self, context):
+    def execute( self, context ):
         set_login_status('FILE_REFRESH', 'Login to your Sketchfab account...')
         wm = context.window_manager
         if self.authenticate:
-            wm.sketchfab_browser.skfb_api.login(wm.sketchfab_api.email, wm.sketchfab_api.password, wm.sketchfab_api.api_token)
+            wm.sketchfab_browser.skfb_api.login( wm.sketchfab_api.email, wm.sketchfab_api.password, wm.sketchfab_api.api_token )
         else:
             wm.sketchfab_browser.skfb_api.logout()
             wm.sketchfab_api.password = ''
@@ -1813,38 +1836,39 @@ class SketchfabModel:
         self.time_url_requested = None
         self.url_expires = None
 
-def ShowMessage(icon = "INFO", title = "Info", message = "Information"):
-    def draw(self, context):
-        self.layout.label(text=message)
-    print("\n{}: {}".format(icon, message))
-    bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
+def ShowMessage( icon = "INFO", title = "Info", message = "Information" ):
+    def draw( self, context ):
+        self.layout.label( text=message )
+    print( "\n{}: {}".format( icon, message ) )
+    bpy.context.window_manager.popup_menu( draw, title = title, icon = icon )
 
 
-class SketchfabDownloadModel(bpy.types.Operator):
+class SketchfabDownloadModel( bpy.types.Operator ):
     """Import the selected model"""
     bl_idname = "wm.sketchfab_download"
     bl_label = "Downloading"
     bl_options = {'INTERNAL'}
 
-    model_uid : bpy.props.StringProperty(name="uid")
+    model_uid : bpy.props.StringProperty( # type: ignore
+        name="uid")
 
-    def execute(self, context):
+    def execute( self, context ):
         skfb_api = context.window_manager.sketchfab_browser.skfb_api
-        skfb_api.download_model(self.model_uid)
+        skfb_api.download_model( self.model_uid )
         return {'FINISHED'}
 
 
-class ViewOnSketchfab(bpy.types.Operator):
+class ViewOnSketchfab( bpy.types.Operator ):
     """Upload your model to Sketchfab"""
     bl_idname = "wm.sketchfab_view"
     bl_label = "View the model on Sketchfab"
     bl_options = {'INTERNAL'}
 
-    model_uid : bpy.props.StringProperty(name="uid")
+    model_uid : bpy.props.StringProperty( name="uid" ) # type: ignore
 
-    def execute(self, context):
+    def execute( self, context ):
         import webbrowser
-        webbrowser.open('{}/models/{}'.format(Config.SKETCHFAB_URL, self.model_uid))
+        webbrowser.open( '{}/models/{}'.format( Config.SKETCHFAB_URL, self.model_uid ) )
         return {'FINISHED'}
 
 
@@ -1853,13 +1877,15 @@ def clear_search():
     skfb.has_loaded_thumbnails = False
     skfb.search_results.clear()
     skfb.custom_icons.clear()
-    bpy.data.window_managers['WinMan']['result_previews'] = 0
+    bpy.data.window_managers['WinMan']['result_previews'] = 0 # 'WinMan' is the default window manager name in Blender
 
 
-class SketchfabSearch(bpy.types.Operator):
-    """Send a search query to Sketchfab
-    Searches on the selected domain (all site, own models for PRO+ users, organization...)
-    and takes into accounts various search filters"""
+class SketchfabSearch( bpy.types.Operator ):
+    """
+        Send a search query to Sketchfab
+        Searches on the selected domain (all site, own models for PRO+ users, organization...)
+        and takes into accounts various search filters
+        """
     bl_idname = "wm.sketchfab_search"
     bl_label = "Search Sketchfab"
     bl_options = {'INTERNAL'}
@@ -1940,13 +1966,13 @@ class SketchfabReportIssue(bpy.types.Operator):
 
 class SketchfabHelp(bpy.types.Operator):
     """Opens the addon README on github"""
-    bl_idname = "wm.skfb_help"
-    bl_label = "Sketchfab"
-    bl_options = {'INTERNAL'}
+    bl_idname   = "wm.skfb_help"
+    bl_label    = "Sketchfab"
+    bl_options  = {'INTERNAL'}
 
-    def execute(self, context):
+    def execute( self, context ):
         import webbrowser
-        webbrowser.open('{}/releases/latest'.format(Config.GITHUB_REPOSITORY_URL))
+        webbrowser.open( '{}/releases/latest'.format( Config.GITHUB_REPOSITORY_URL ) )
         return {'FINISHED'}
 
 
@@ -2348,9 +2374,9 @@ def updateCacheDirectory(self, context):
     if not os.path.exists(Config.SKETCHFAB_THUMB_DIR): os.makedirs(Config.SKETCHFAB_THUMB_DIR)
     if not os.path.exists(Config.SKETCHFAB_MODEL_DIR): os.makedirs(Config.SKETCHFAB_MODEL_DIR)
 
-class SketchfabAddonPreferences(bpy.types.AddonPreferences):
+class SketchfabAddonPreferences( bpy.types.AddonPreferences ):
     bl_idname = __name__
-    cachePath: StringProperty(
+    cachePath: StringProperty( # type: ignore
         name="Cache folder",
         description=(
             "Temporary directory for downloads from sketchfab.com\n"
@@ -2360,7 +2386,7 @@ class SketchfabAddonPreferences(bpy.types.AddonPreferences):
         subtype='DIR_PATH',
         update=updateCacheDirectory
     )
-    downloadHistory : StringProperty(
+    downloadHistory : StringProperty( # type: ignore
         name="Download history file",
         description=(
             ".csv file containing your downloads from sketchfab.com\n"
@@ -2437,35 +2463,26 @@ def register():
     bpy.types.WindowManager.result_previews = EnumProperty(items=list_current_results)
 
     for cls in classes:
-        bpy.utils.register_class(cls)
+        bpy.utils.register_class( cls )
 
-    bpy.types.WindowManager.sketchfab_browser = PointerProperty(
-                type=SketchfabBrowserProps)
-
-    bpy.types.WindowManager.sketchfab_browser_proxy = PointerProperty(
-                type=SketchfabBrowserPropsProxy)
-
-    bpy.types.WindowManager.sketchfab_api = PointerProperty(
-                type=SketchfabLoginProps,
-                )
-
-    bpy.types.WindowManager.sketchfab_export = PointerProperty(
-                type=SketchfabExportProps,
-                )
+    bpy.types.WindowManager.sketchfab_browser       = PointerProperty( type=SketchfabBrowserProps )
+    bpy.types.WindowManager.sketchfab_browser_proxy = PointerProperty( type=SketchfabBrowserPropsProxy )
+    bpy.types.WindowManager.sketchfab_api           = PointerProperty( type=SketchfabLoginProps, )
+    bpy.types.WindowManager.sketchfab_export        = PointerProperty( type=SketchfabExportProps, )
 
     # If a cache path was set in preferences, use it
-    updateCacheDirectory(None, context=bpy.context)
+    updateCacheDirectory( None, context=bpy.context )
 
 def unregister():
-    for cls in classes:
-        bpy.utils.unregister_class(cls)
+    for cls in reversed( classes ):
+        bpy.utils.unregister_class( cls )
 
     del bpy.types.WindowManager.sketchfab_api
     del bpy.types.WindowManager.sketchfab_browser
     del bpy.types.WindowManager.sketchfab_browser_proxy
     del bpy.types.WindowManager.sketchfab_export
 
-    bpy.utils.previews.remove(preview_collection['skfb'])
+    bpy.utils.previews.remove( preview_collection['skfb'] )
     del bpy.types.WindowManager.result_previews
     Utils.clean_thumbnail_directory()
 
