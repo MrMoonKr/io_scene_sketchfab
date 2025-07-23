@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from __future__ import annotations # 전방위 선언이 필요없이 타입 힌트를 문자열로 자동 처리해 주는 기능
+
 import os
 import urllib
 import requests
@@ -34,7 +36,6 @@ from bpy.props import (StringProperty,
                        IntProperty,
                        PointerProperty)
 
-from __future__ import annotations # 전방위 선언이 필요없이 타입 힌트를 문자열로 자동 처리해 주는 기능
 
 bl_info = {
     'name': 'Sketchfab Plugin',
@@ -1445,39 +1446,41 @@ class LoginModal(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
 
-class ImportModalOperator(bpy.types.Operator):
-    """Imports the selected model into Blender"""
-    bl_idname = "wm.import_modal"
-    bl_label = "Import glTF model into Sketchfab"
-    bl_options = {'INTERNAL'}
+class ImportModalOperator( bpy.types.Operator ):
+    """
+        Imports the selected model into Blender
+        """
+    bl_idname   = "wm.import_modal"
+    bl_label    = "Import glTF model into Sketchfab"
+    bl_options  = {'INTERNAL'}
 
-    gltf_path : StringProperty()
-    uid : StringProperty()
-    title: StringProperty()
+    gltf_path: StringProperty() # type: ignore
+    uid: StringProperty() # type: ignore
+    title: StringProperty() # type: ignore
 
-    def execute(self, context):
+    def execute( self, context ):
         print('IMPORT')
         return {'FINISHED'}
 
-    def modal(self, context, event):
-        if bpy.context.scene.render.engine not in ["CYCLES", "BLENDER_EEVEE"]:
+    def modal( self, context, event ):
+        if bpy.context.scene.render.engine not in ["CYCLES", "BLENDER_EEVEE", "BLENDER_EEVEE_NEXT"]:
             bpy.context.scene.render.engine = "BLENDER_EEVEE"
         try:
             old_objects = [o.name for o in bpy.data.objects] # Get the current objects inorder to find the new node hierarchy
-            bpy.ops.import_scene.gltf(filepath=self.gltf_path)
+            bpy.ops.import_scene.gltf( filepath=self.gltf_path )
             set_import_status('')
-            Utils.clean_downloaded_model_dir(self.uid)
-            Utils.clean_node_hierarchy([o for o in bpy.data.objects if o.name not in old_objects], self.title)
+            Utils.clean_downloaded_model_dir( self.uid )
+            Utils.clean_node_hierarchy( [o for o in bpy.data.objects if o.name not in old_objects], self.title )
             return {'FINISHED'}
         except Exception:
             import traceback
-            print(traceback.format_exc())
+            print( traceback.format_exc() )
             set_import_status('')
             return {'FINISHED'}
 
-    def invoke(self, context, event):
-        context.window_manager.modal_handler_add(self)
-        set_import_status('Importing...')
+    def invoke( self, context, event ):
+        context.window_manager.modal_handler_add( self )
+        set_import_status( 'Importing...' )
         return {'RUNNING_MODAL'}
 
 
